@@ -81,11 +81,11 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      * @dev Withdraws funds and sends them back to the vault.
      */
     function _withdraw(uint256 _amount) internal override {
-        // uint256 wantBal = IERC20Upgradeable(want).balanceOf(address(this));
-        // if (wantBal < _amount) {
-        //     IMasterChef(TSHARE_REWARDS_POOL).withdraw(poolId, _amount - wantBal);
-        // }
-        // IERC20Upgradeable(want).safeTransfer(vault, _amount);
+        uint256 wantBal = IERC20Upgradeable(want).balanceOf(address(this));
+        if (wantBal < _amount) {
+            ISteakHouseV2(MASTER_CHEF).withdraw(poolId, _amount - wantBal);
+        }
+        IERC20Upgradeable(want).safeTransfer(vault, _amount);
     }
 
     /**
