@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "./abstract/ReaperBaseStrategyv2.sol";
-import "./interfaces/IMasterChef.sol";
+import "./interfaces/ISteakHouseV2.sol";
 import "./interfaces/IUniswapV2Router02.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
@@ -63,9 +63,6 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         address[] memory _strategists
     ) public initializer {
         __ReaperBaseStrategy_init(_vault, _feeRemitters, _strategists);
-        // tshareToWftmPath = [TSHARE, WFTM];
-        // wftmToTombPath = [WFTM, lpToken0];
-        // tombToMaiPath = [lpToken0, lpToken1];
     }
 
     /**
@@ -73,11 +70,11 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      *      It gets called whenever someone deposits in the strategy's vault contract.
      */
     function _deposit() internal override {
-        // uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
-        // if (wantBalance != 0) {
-        //     IERC20Upgradeable(want).safeIncreaseAllowance(TSHARE_REWARDS_POOL, wantBalance);
-        //     IMasterChef(TSHARE_REWARDS_POOL).deposit(poolId, wantBalance);
-        // }
+        uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
+        if (wantBalance != 0) {
+            IERC20Upgradeable(want).safeIncreaseAllowance(MASTER_CHEF, wantBalance);
+            ISteakHouseV2(MASTER_CHEF).deposit(poolId, wantBalance);
+        }
     }
 
     /**
