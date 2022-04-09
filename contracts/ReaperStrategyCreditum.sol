@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./abstract/ReaperBaseStrategyv2.sol";
 import "./interfaces/ISteakHouseV2.sol";
 import "./interfaces/IUniswapV2Router02.sol";
+import "./interfaces/IBeetVault.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import "hardhat/console.sol";
@@ -33,6 +34,7 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     address public constant CREDIT = address(0x77128DFdD0ac859B33F44050c6fa272F34872B5E);
     address public constant ANGLE = address(0x3b9e3b5c616A1A038fDc190758Bbe9BAB6C7A857);
     address public constant CUSD = address(0xE3a486C1903Ea794eED5d5Fa0C9473c7D7708f40);
+    address public constant AGEUR = address(0x02a2b736F9150d36C0919F3aCEE8BA2A92FBBb40);
     address public constant want = address(0x1b371a952A3246dAc40530D400d86b5d36655ad1);
     address public constant lpToken0 = address(0x02a2b736F9150d36C0919F3aCEE8BA2A92FBBb40);
     address public constant lpToken1 = address(0xE3a486C1903Ea794eED5d5Fa0C9473c7D7708f40);
@@ -103,16 +105,12 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      */
     function _harvestCore() internal override {
         _claimRewards();
-        // _swapRewardsToWftm();
-        // uint256 tshareBal = IERC20Upgradeable(TSHARE).balanceOf(address(this));
-        // _swap(tshareBal, tshareToWftmPath, SPOOKY_ROUTER);
-        // _chargeFees();
-        // uint256 wftmBal = IERC20Upgradeable(WFTM).balanceOf(address(this));
-        // _swap(wftmBal, wftmToTombPath, SPOOKY_ROUTER);
-        // uint256 tombHalf = IERC20Upgradeable(lpToken0).balanceOf(address(this)) / 2;
-        // _swap(tombHalf, tombToMaiPath, TOMB_ROUTER);
-        // _addLiquidity();
-        // deposit();
+        _swapRewardsToWftm();
+        _swapWFTMToCUSD();
+        uint256 cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
+        console.log("cUSDBalance: ", cUSDBalance);
+        _addLiquidity();
+        deposit();
     }
 
     function _claimRewards() internal {
@@ -124,12 +122,43 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         angleToWftm[0] = ANGLE;
         angleToWftm[1] = WFTM;
         uint256 angleBalance = IERC20Upgradeable(ANGLE).balanceOf(address(this));
-        _swapUniRouter(angleBalance, angleToWftm, SPIRIT_ROUTER);
-        uint256 angleBalanceAfter = IERC20Upgradeable(ANGLE).balanceOf(address(this));
-        uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
         console.log("angleBalance: ", angleBalance);
-        console.log("angleBalanceAfter: ", angleBalanceAfter);
+        _swapUniRouter(angleBalance, angleToWftm, SPOOKY_ROUTER);
+        address[] memory creditToWftm = new address[](2);
+        creditToWftm[0] = ANGLE;
+        creditToWftm[1] = WFTM;
+        uint256 creditBalance = IERC20Upgradeable(CREDIT).balanceOf(address(this));
+        console.log("creditBalance: ", creditBalance);
+        _swapUniRouter(creditBalance, creditToWftm, SPOOKY_ROUTER);
+        uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
         console.log("wftmBalance: ", wftmBalance);
+    }
+
+    /**
+     * @dev Core harvest function. Swaps {BEETS} to {WFTM} using {WFTM_BEETS_POOL}.
+     */
+    function _swapWFTMToCUSD() internal {
+        uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
+        if (wftmBalance == 0) {
+            return;
+        }
+
+        IBeetVault.SingleSwap memory singleSwap;
+        singleSwap.poolId = WFTM_CREDIT_CUSD_POOL;
+        singleSwap.kind = IBeetVault.SwapKind.GIVEN_IN;
+        singleSwap.assetIn = IAsset(WFTM);
+        singleSwap.assetOut = IAsset(CUSD);
+        singleSwap.amount = wftmBalance;
+        singleSwap.userData = abi.encode(0);
+
+        IBeetVault.FundManagement memory funds;
+        funds.sender = address(this);
+        funds.fromInternalBalance = false;
+        funds.recipient = payable(address(this));
+        funds.toInternalBalance = false;
+
+        IERC20Upgradeable(WFTM).safeIncreaseAllowance(BEET_VAULT, wftmBalance);
+        IBeetVault(BEET_VAULT).swap(singleSwap, funds, 1, block.timestamp);
     }
 
     /**
@@ -177,22 +206,34 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      * @dev Core harvest function. Adds more liquidity using {lpToken0} and {lpToken1}.
      */
     function _addLiquidity() internal {
-        // uint256 lp0Bal = IERC20Upgradeable(lpToken0).balanceOf(address(this));
-        // uint256 lp1Bal = IERC20Upgradeable(lpToken1).balanceOf(address(this));
-        // if (lp0Bal != 0 && lp1Bal != 0) {
-        //     IERC20Upgradeable(lpToken0).safeIncreaseAllowance(TOMB_ROUTER, lp0Bal);
-        //     IERC20Upgradeable(lpToken1).safeIncreaseAllowance(TOMB_ROUTER, lp1Bal);
-        //     IUniswapV2Router02(TOMB_ROUTER).addLiquidity(
-        //         lpToken0,
-        //         lpToken1,
-        //         lp0Bal,
-        //         lp1Bal,
-        //         0,
-        //         0,
-        //         address(this),
-        //         block.timestamp
-        //     );
-        // }
+        uint256 cUSDBal = IERC20Upgradeable(CUSD).balanceOf(address(this));
+        address[] memory cUSDToagEUR = new address[](2);
+        cUSDToagEUR[0] = CUSD;
+        cUSDToagEUR[1] = AGEUR;
+        _swapUniRouter(cUSDBal / 2, cUSDToagEUR, SPOOKY_ROUTER);
+        uint256 agEURBalance = IERC20Upgradeable(AGEUR).balanceOf(address(this));
+        cUSDBal = IERC20Upgradeable(CUSD).balanceOf(address(this));
+        console.log("agEURBalance: ", agEURBalance);
+
+        uint256 wantBal = IERC20Upgradeable(want).balanceOf(address(this));
+        console.log("wantBal: ", wantBal);
+
+        if (agEURBalance != 0 && cUSDBal != 0) {
+            IERC20Upgradeable(CUSD).safeIncreaseAllowance(SPOOKY_ROUTER, cUSDBal);
+            IERC20Upgradeable(AGEUR).safeIncreaseAllowance(SPOOKY_ROUTER, agEURBalance);
+            IUniswapV2Router02(SPOOKY_ROUTER).addLiquidity(
+                CUSD,
+                AGEUR,
+                cUSDBal,
+                agEURBalance,
+                0,
+                0,
+                address(this),
+                block.timestamp
+            );
+        }
+        wantBal = IERC20Upgradeable(want).balanceOf(address(this));
+        console.log("wantBal: ", wantBal);
     }
 
     /**

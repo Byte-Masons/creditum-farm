@@ -8,7 +8,7 @@
     },
     {
       "address": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB",
-      "txHash": "0x2f53b04027baa9bcca1ae029b60e6689d848386df35e58521e3f286e9f424c8e",
+      "txHash": "0x74be5d2da930726704415122b9a0455a44d04000f99ef24f3ab1f2607b43fae1",
       "kind": "uups"
     }
   ],
@@ -982,9 +982,9 @@
         }
       }
     },
-    "6b0f4550d4e070e2182f304770f2c05b4d2832bce29bd78e90de48b2e2c40026": {
+    "a20c297caa72d332f035ea61cbd1e18447b3f34632b42a1ad0694385e99d0e0e": {
       "address": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
-      "txHash": "0x20eaa17f909bf6db6e0234814261afb21678eefa0f2f0245d7146954a422ee20",
+      "txHash": "0xc4871badd325c3b33a4db2fe30a2dae8367e60592321e8bd6c010704559c94b6",
       "layout": {
         "storage": [
           {
@@ -1087,7 +1087,7 @@
             "label": "harvestLog",
             "offset": 0,
             "slot": "351",
-            "type": "t_array(t_struct(Harvest)6319_storage)dyn_storage",
+            "type": "t_array(t_struct(Harvest)6673_storage)dyn_storage",
             "contract": "ReaperBaseStrategyv2",
             "src": "contracts\\abstract\\ReaperBaseStrategyv2.sol:27"
           },
@@ -1185,7 +1185,7 @@
             "slot": "363",
             "type": "t_array(t_address)dyn_storage",
             "contract": "ReaperStrategyCreditum",
-            "src": "contracts\\ReaperStrategyCreditum.sol:46"
+            "src": "contracts\\ReaperStrategyCreditum.sol:48"
           },
           {
             "label": "wftmToTombPath",
@@ -1193,7 +1193,7 @@
             "slot": "364",
             "type": "t_array(t_address)dyn_storage",
             "contract": "ReaperStrategyCreditum",
-            "src": "contracts\\ReaperStrategyCreditum.sol:47"
+            "src": "contracts\\ReaperStrategyCreditum.sol:49"
           },
           {
             "label": "tombToMaiPath",
@@ -1201,7 +1201,7 @@
             "slot": "365",
             "type": "t_array(t_address)dyn_storage",
             "contract": "ReaperStrategyCreditum",
-            "src": "contracts\\ReaperStrategyCreditum.sol:48"
+            "src": "contracts\\ReaperStrategyCreditum.sol:50"
           }
         ],
         "types": {
@@ -1217,7 +1217,7 @@
             "label": "bytes32[]",
             "numberOfBytes": "32"
           },
-          "t_array(t_struct(Harvest)6319_storage)dyn_storage": {
+          "t_array(t_struct(Harvest)6673_storage)dyn_storage": {
             "label": "struct ReaperBaseStrategyv2.Harvest[]",
             "numberOfBytes": "32"
           },
@@ -1265,7 +1265,7 @@
             ],
             "numberOfBytes": "64"
           },
-          "t_struct(Harvest)6319_storage": {
+          "t_struct(Harvest)6673_storage": {
             "label": "struct ReaperBaseStrategyv2.Harvest",
             "members": [
               {
