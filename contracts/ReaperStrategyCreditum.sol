@@ -7,6 +7,8 @@ import "./interfaces/ISteakHouseV2.sol";
 import "./interfaces/IUniswapV2Router02.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @dev Deposit TOMB-MAI LP in TShareRewardsPool. Harvest TSHARE rewards and recompound.
  */
@@ -16,6 +18,7 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     // 3rd-party contract addresses
     address public constant BEET_VAULT = address(0x20dd72Ed959b6147912C2e529F0a0C651c33c9ce);
     address public constant SPOOKY_ROUTER = address(0xF491e7B69E4244ad4002BC14e878a34207E38c29);
+    address public constant SPIRIT_ROUTER = address(0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52);
     address public constant MASTER_CHEF = address(0xe0c43105235C1f18EA15fdb60Bb6d54814299938);
 
     /**
@@ -46,6 +49,7 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
 
     // pools used to swap tokens
     bytes32 public constant WFTM_CREDIT_CUSD_POOL = 0x1b1d74a1ab76338653e3aaae79634d6a153d6514000100000000000000000225;
+    
 
     /**
      * @dev Tomb variables
@@ -98,7 +102,8 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      *      6. Creates new LP tokens and deposits.
      */
     function _harvestCore() internal override {
-        // IMasterChef(TSHARE_REWARDS_POOL).deposit(poolId, 0); // deposit 0 to claim rewards
+        _claimRewards();
+        // _swapRewardsToWftm();
         // uint256 tshareBal = IERC20Upgradeable(TSHARE).balanceOf(address(this));
         // _swap(tshareBal, tshareToWftmPath, SPOOKY_ROUTER);
         // _chargeFees();
@@ -110,10 +115,27 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         // deposit();
     }
 
+    function _claimRewards() internal {
+        ISteakHouseV2(MASTER_CHEF).deposit(poolId, 0); // deposit 0 to claim rewards
+    }
+
+    function _swapRewardsToWftm() internal {
+        address[] memory angleToWftm = new address[](2);
+        angleToWftm[0] = ANGLE;
+        angleToWftm[1] = WFTM;
+        uint256 angleBalance = IERC20Upgradeable(ANGLE).balanceOf(address(this));
+        _swapUniRouter(angleBalance, angleToWftm, SPIRIT_ROUTER);
+        uint256 angleBalanceAfter = IERC20Upgradeable(ANGLE).balanceOf(address(this));
+        uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
+        console.log("angleBalance: ", angleBalance);
+        console.log("angleBalanceAfter: ", angleBalanceAfter);
+        console.log("wftmBalance: ", wftmBalance);
+    }
+
     /**
      * @dev Helper function to swap tokens given an {_amount}, swap {_path}, and {_router}.
      */
-    function _swap(
+    function _swapUniRouter(
         uint256 _amount,
         address[] memory _path,
         address _router
@@ -178,8 +200,8 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      *      It takes into account both the funds in hand, plus the funds in the MasterChef.
      */
     function balanceOf() public view override returns (uint256) {
-        // (uint256 amount, ) = IMasterChef(TSHARE_REWARDS_POOL).userInfo(poolId, address(this));
-        // return amount + IERC20Upgradeable(want).balanceOf(address(this));
+        uint256 amount = ISteakHouseV2(MASTER_CHEF).getUserInfo(poolId, address(this)).amount;
+        return amount + IERC20Upgradeable(want).balanceOf(address(this));
     }
 
     /**
