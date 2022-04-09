@@ -25,4 +25,9 @@ interface ISteakHouseV2  {
         external
         view
         returns (UserInfo memory);
+    function emergencyWithdraw(uint256 _pid) external;
+    function pendingRewards(uint256 _pid, address _user)
+        external
+        view
+        returns (uint256[] memory);
 }

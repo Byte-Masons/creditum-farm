@@ -19,16 +19,18 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     // 3rd-party contract addresses
     address public constant BEET_VAULT = address(0x20dd72Ed959b6147912C2e529F0a0C651c33c9ce);
     address public constant SPOOKY_ROUTER = address(0xF491e7B69E4244ad4002BC14e878a34207E38c29);
-    address public constant SPIRIT_ROUTER = address(0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52);
     address public constant MASTER_CHEF = address(0xe0c43105235C1f18EA15fdb60Bb6d54814299938);
 
     /**
      * @dev Tokens Used:
      * {WFTM} - Required for liquidity routing when doing swaps.
-     * {TSHARE} - Reward token for depositing LP into TShareRewardsPool.
-     * {want} - Address of TOMB-MAI LP token. (lowercase name for FE compatibility)
-     * {lpToken0} - TOMB (name for FE compatibility)
-     * {lpToken1} - MAI (name for FE compatibility)
+     * {CREDIT} - Reward token for depositing LP into the StakeHouse
+     * {ANGLE} - Reward token for depositing LP into the StakeHouse
+     * {AGEUR} - lpToken0 of the want
+     * {CUSD} - lpToken1 of the want
+     * {want} - Address of AGEUR-CUSD LP token. (lowercase name for FE compatibility)
+     * {lpToken0} - AGEUR (just for FE compatibility)
+     * {lpToken1} - CUSD (just for FE compatibility)
      */
     address public constant WFTM = address(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
     address public constant CREDIT = address(0x77128DFdD0ac859B33F44050c6fa272F34872B5E);
@@ -36,25 +38,14 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     address public constant CUSD = address(0xE3a486C1903Ea794eED5d5Fa0C9473c7D7708f40);
     address public constant AGEUR = address(0x02a2b736F9150d36C0919F3aCEE8BA2A92FBBb40);
     address public constant want = address(0x1b371a952A3246dAc40530D400d86b5d36655ad1);
-    address public constant lpToken0 = address(0x02a2b736F9150d36C0919F3aCEE8BA2A92FBBb40);
-    address public constant lpToken1 = address(0xE3a486C1903Ea794eED5d5Fa0C9473c7D7708f40);
-
-    /**
-     * @dev Paths used to swap tokens:
-     * {tshareToWftmPath} - to swap {TSHARE} to {WFTM} (using SPOOKY_ROUTER)
-     * {wftmToTombPath} - to swap {WFTM} to {lpToken0} (using SPOOKY_ROUTER)
-     * {tombToMaiPath} - to swap half of {lpToken0} to {lpToken1} (using TOMB_ROUTER)
-     */
-    address[] public tshareToWftmPath;
-    address[] public wftmToTombPath;
-    address[] public tombToMaiPath;
+    address public constant lpToken0 = address(AGEUR);
+    address public constant lpToken1 = address(CUSD);
 
     // pools used to swap tokens
     bytes32 public constant WFTM_CREDIT_CUSD_POOL = 0x1b1d74a1ab76338653e3aaae79634d6a153d6514000100000000000000000225;
     
-
     /**
-     * @dev Tomb variables
+     * @dev Creditum variables
      * {poolId} - ID of pool in which to deposit LP tokens
      */
     uint256 public constant poolId = 2;
@@ -87,25 +78,26 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      * @dev Withdraws funds and sends them back to the vault.
      */
     function _withdraw(uint256 _amount) internal override {
-        uint256 wantBal = IERC20Upgradeable(want).balanceOf(address(this));
-        if (wantBal < _amount) {
-            ISteakHouseV2(MASTER_CHEF).withdraw(poolId, _amount - wantBal);
+        uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
+        if (wantBalance < _amount) {
+            ISteakHouseV2(MASTER_CHEF).withdraw(poolId, _amount - wantBalance);
         }
         IERC20Upgradeable(want).safeTransfer(vault, _amount);
     }
 
     /**
      * @dev Core function of the strat, in charge of collecting and re-investing rewards.
-     *      1. Claims {TSHARE} from the {TSHARE_REWARDS_POOL}.
-     *      2. Swaps {TSHARE} to {WFTM} using {SPOOKY_ROUTER}.
+     *      1. Claims rewards from {MASTER_CHEF}.
+     *      2. Swaps rewards to {WFTM} using {SPOOKY_ROUTER}.
      *      3. Claims fees for the harvest caller and treasury.
-     *      4. Swaps the {WFTM} token for {lpToken0} using {SPOOKY_ROUTER}.
-     *      5. Swaps half of {lpToken0} to {lpToken1} using {TOMB_ROUTER}.
-     *      6. Creates new LP tokens and deposits.
+     *      4. Swaps the {WFTM} token for {CUSD} using {SPOOKY_ROUTER}.
+     *      5. Swaps half of {CUSD} to {AGEUR} and creates want using {SPOOKY_ROUTERR}.
+     *      6. Deposits want into {MASTER_CHEF}.
      */
     function _harvestCore() internal override {
         _claimRewards();
         _swapRewardsToWftm();
+        _chargeFees();
         _swapWFTMToCUSD();
         uint256 cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
         console.log("cUSDBalance: ", cUSDBalance);
@@ -123,19 +115,19 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         angleToWftm[1] = WFTM;
         uint256 angleBalance = IERC20Upgradeable(ANGLE).balanceOf(address(this));
         console.log("angleBalance: ", angleBalance);
-        _swapUniRouter(angleBalance, angleToWftm, SPOOKY_ROUTER);
+        _swapUniRouter(angleBalance, angleToWftm);
         address[] memory creditToWftm = new address[](2);
-        creditToWftm[0] = ANGLE;
+        creditToWftm[0] = CREDIT;
         creditToWftm[1] = WFTM;
         uint256 creditBalance = IERC20Upgradeable(CREDIT).balanceOf(address(this));
         console.log("creditBalance: ", creditBalance);
-        _swapUniRouter(creditBalance, creditToWftm, SPOOKY_ROUTER);
+        _swapUniRouter(creditBalance, creditToWftm);
         uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
         console.log("wftmBalance: ", wftmBalance);
     }
 
     /**
-     * @dev Core harvest function. Swaps {BEETS} to {WFTM} using {WFTM_BEETS_POOL}.
+     * @dev Core harvest function. Swaps {WFTM} to {CUSD} using {WFTM_CREDIT_CUSD_POOL}.
      */
     function _swapWFTMToCUSD() internal {
         uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
@@ -162,19 +154,18 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     }
 
     /**
-     * @dev Helper function to swap tokens given an {_amount}, swap {_path}, and {_router}.
+     * @dev Helper function to swap tokens given an {_amount}, swap {_path}
      */
     function _swapUniRouter(
         uint256 _amount,
-        address[] memory _path,
-        address _router
+        address[] memory _path
     ) internal {
         if (_path.length < 2 || _amount == 0) {
             return;
         }
 
-        IERC20Upgradeable(_path[0]).safeIncreaseAllowance(_router, _amount);
-        IUniswapV2Router02(_router).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        IERC20Upgradeable(_path[0]).safeIncreaseAllowance(SPOOKY_ROUTER, _amount);
+        IUniswapV2Router02(SPOOKY_ROUTER).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amount,
             0,
             _path,
@@ -206,25 +197,25 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      * @dev Core harvest function. Adds more liquidity using {lpToken0} and {lpToken1}.
      */
     function _addLiquidity() internal {
-        uint256 cUSDBal = IERC20Upgradeable(CUSD).balanceOf(address(this));
+        uint256 cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
         address[] memory cUSDToagEUR = new address[](2);
         cUSDToagEUR[0] = CUSD;
         cUSDToagEUR[1] = AGEUR;
-        _swapUniRouter(cUSDBal / 2, cUSDToagEUR, SPOOKY_ROUTER);
+        _swapUniRouter(cUSDBalance / 2, cUSDToagEUR);
         uint256 agEURBalance = IERC20Upgradeable(AGEUR).balanceOf(address(this));
-        cUSDBal = IERC20Upgradeable(CUSD).balanceOf(address(this));
+        cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
         console.log("agEURBalance: ", agEURBalance);
 
-        uint256 wantBal = IERC20Upgradeable(want).balanceOf(address(this));
-        console.log("wantBal: ", wantBal);
+        uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
+        console.log("wantBalance: ", wantBalance);
 
-        if (agEURBalance != 0 && cUSDBal != 0) {
-            IERC20Upgradeable(CUSD).safeIncreaseAllowance(SPOOKY_ROUTER, cUSDBal);
+        if (agEURBalance != 0 && cUSDBalance != 0) {
+            IERC20Upgradeable(CUSD).safeIncreaseAllowance(SPOOKY_ROUTER, cUSDBalance);
             IERC20Upgradeable(AGEUR).safeIncreaseAllowance(SPOOKY_ROUTER, agEURBalance);
             IUniswapV2Router02(SPOOKY_ROUTER).addLiquidity(
                 CUSD,
                 AGEUR,
-                cUSDBal,
+                cUSDBalance,
                 agEURBalance,
                 0,
                 0,
@@ -232,8 +223,8 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
                 block.timestamp
             );
         }
-        wantBal = IERC20Upgradeable(want).balanceOf(address(this));
-        console.log("wantBal: ", wantBal);
+        wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
+        console.log("wantBalance: ", wantBalance);
     }
 
     /**
@@ -250,15 +241,27 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      *      Profit is denominated in WFTM, and takes fees into account.
      */
     function estimateHarvest() external view override returns (uint256 profit, uint256 callFeeToUser) {
-        // uint256 pendingReward = IMasterChef(TSHARE_REWARDS_POOL).pendingShare(poolId, address(this));
-        // uint256 totalRewards = pendingReward + IERC20Upgradeable(TSHARE).balanceOf(address(this));
-        // if (totalRewards != 0) {
-        //     profit += IUniswapV2Router02(SPOOKY_ROUTER).getAmountsOut(totalRewards, tshareToWftmPath)[1];
-        // }
-        // profit += IERC20Upgradeable(WFTM).balanceOf(address(this));
-        // uint256 wftmFee = (profit * totalFee) / PERCENT_DIVISOR;
-        // callFeeToUser = (wftmFee * callFee) / PERCENT_DIVISOR;
-        // profit -= wftmFee;
+        uint256[] memory pendingRewards = ISteakHouseV2(MASTER_CHEF).pendingRewards(poolId, address(this));
+        uint256 creditPending = pendingRewards[0];
+        uint256 anglePending = pendingRewards[1];
+        uint256 totalCredit = creditPending + IERC20Upgradeable(CREDIT).balanceOf(address(this));
+        if (totalCredit != 0) {
+            address[] memory creditToWftm = new address[](2);
+            creditToWftm[0] = CREDIT;
+            creditToWftm[1] = WFTM;
+            profit += IUniswapV2Router02(SPOOKY_ROUTER).getAmountsOut(totalCredit, creditToWftm)[1];
+        }
+        uint256 totalAngle = anglePending + IERC20Upgradeable(ANGLE).balanceOf(address(this));
+        if (totalAngle != 0) {
+            address[] memory angleToWftm = new address[](2);
+            angleToWftm[0] = ANGLE;
+            angleToWftm[1] = WFTM;
+            profit += IUniswapV2Router02(SPOOKY_ROUTER).getAmountsOut(totalAngle, angleToWftm)[1];
+        }
+        profit += IERC20Upgradeable(WFTM).balanceOf(address(this));
+        uint256 wftmFee = (profit * totalFee) / PERCENT_DIVISOR;
+        callFeeToUser = (wftmFee * callFee) / PERCENT_DIVISOR;
+        profit -= wftmFee;
     }
 
     /**
@@ -269,24 +272,19 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
      * Note: this is not an emergency withdraw function. For that, see panic().
      */
     function _retireStrat() internal override {
-        // IMasterChef(TSHARE_REWARDS_POOL).deposit(poolId, 0); // deposit 0 to claim rewards
-        // uint256 tshareBal = IERC20Upgradeable(TSHARE).balanceOf(address(this));
-        // _swap(tshareBal, tshareToWftmPath, SPOOKY_ROUTER);
-        // uint256 wftmBal = IERC20Upgradeable(WFTM).balanceOf(address(this));
-        // _swap(wftmBal, wftmToTombPath, SPOOKY_ROUTER);
-        // uint256 tombHalf = IERC20Upgradeable(lpToken0).balanceOf(address(this)) / 2;
-        // _swap(tombHalf, tombToMaiPath, TOMB_ROUTER);
-        // _addLiquidity();
-        // (uint256 poolBal, ) = IMasterChef(TSHARE_REWARDS_POOL).userInfo(poolId, address(this));
-        // IMasterChef(TSHARE_REWARDS_POOL).withdraw(poolId, poolBal);
-        // uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
-        // IERC20Upgradeable(want).safeTransfer(vault, wantBalance);
+        uint256 amount = ISteakHouseV2(MASTER_CHEF).getUserInfo(poolId, address(this)).amount;
+        ISteakHouseV2(MASTER_CHEF).withdraw(poolId, amount);
+        _swapRewardsToWftm();
+        _swapWFTMToCUSD();
+        _addLiquidity();
+        uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
+        IERC20Upgradeable(want).safeTransfer(vault, wantBalance);
     }
 
     /**
      * Withdraws all funds leaving rewards behind.
      */
     function _reclaimWant() internal override {
-        // IMasterChef(TSHARE_REWARDS_POOL).emergencyWithdraw(poolId);
+        ISteakHouseV2(MASTER_CHEF).emergencyWithdraw(poolId);
     }
 }
