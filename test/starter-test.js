@@ -53,7 +53,7 @@ describe('Vaults', function () {
         {
           forking: {
             jsonRpcUrl: 'https://rpc.ftm.tools/',
-            blockNumber: 35648742,
+            blockNumber: 35699107,
           },
         },
       ],
@@ -198,12 +198,7 @@ describe('Vaults', function () {
       expect(isSmallBalanceDifference).to.equal(true);
     });
 
-    xit('should be able to harvest', async function () {
-      await vault.connect(wantHolder).deposit(toWantUnit('1000'));
-      await strategy.harvest();
-    });
-
-    it('should provide yield', async function () {
+    xit('should provide yield', async function () {
       const timeToSkip = 3600;
       const initialUserBalance = await want.balanceOf(wantHolderAddr);
       const depositAmount = initialUserBalance.div(10);
@@ -263,16 +258,16 @@ describe('Vaults', function () {
       expect(newStrategyBalance).to.be.lt(allowedImprecision);
     });
 
-    xit('should be able to retire strategy with no balance', async function () {
-      await expect(strategy.retireStrat()).to.not.be.reverted;
-    });
-
-    xit('should be able to estimate harvest', async function () {
+    it('should be able to estimate harvest', async function () {
       const whaleDepositAmount = toWantUnit('1000');
       await vault.connect(wantHolder).deposit(whaleDepositAmount);
-      await moveBlocksForward(100);
+      await moveBlocksForward(1);
+      await moveTimeForward(3600);
+      await moveBlocksForward(1);
       await strategy.harvest();
-      await moveBlocksForward(100);
+      await moveBlocksForward(1);
+      await moveTimeForward(3600);
+      await moveBlocksForward(1);
       const [profit, callFeeToUser] = await strategy.estimateHarvest();
       console.log(`profit: ${profit}`);
       const hasProfit = profit.gt(0);

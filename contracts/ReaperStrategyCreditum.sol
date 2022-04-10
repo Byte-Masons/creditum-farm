@@ -8,10 +8,8 @@ import "./interfaces/IUniswapV2Router02.sol";
 import "./interfaces/IBeetVault.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
-import "hardhat/console.sol";
-
 /**
- * @dev Deposit TOMB-MAI LP in TShareRewardsPool. Harvest TSHARE rewards and recompound.
+ * @dev Deposit cUSD-agEUR LP in StakeHouse. Harvest CREDIT + ANGLE rewards and recompound.
  */
 contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -99,8 +97,6 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         _swapRewardsToWftm();
         _chargeFees();
         _swapWFTMToCUSD();
-        uint256 cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
-        console.log("cUSDBalance: ", cUSDBalance);
         _addLiquidity();
         deposit();
     }
@@ -114,16 +110,12 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         angleToWftm[0] = ANGLE;
         angleToWftm[1] = WFTM;
         uint256 angleBalance = IERC20Upgradeable(ANGLE).balanceOf(address(this));
-        console.log("angleBalance: ", angleBalance);
         _swapUniRouter(angleBalance, angleToWftm);
         address[] memory creditToWftm = new address[](2);
         creditToWftm[0] = CREDIT;
         creditToWftm[1] = WFTM;
         uint256 creditBalance = IERC20Upgradeable(CREDIT).balanceOf(address(this));
-        console.log("creditBalance: ", creditBalance);
         _swapUniRouter(creditBalance, creditToWftm);
-        uint256 wftmBalance = IERC20Upgradeable(WFTM).balanceOf(address(this));
-        console.log("wftmBalance: ", wftmBalance);
     }
 
     /**
@@ -204,10 +196,8 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         _swapUniRouter(cUSDBalance / 2, cUSDToagEUR);
         uint256 agEURBalance = IERC20Upgradeable(AGEUR).balanceOf(address(this));
         cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
-        console.log("agEURBalance: ", agEURBalance);
 
         uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
-        console.log("wantBalance: ", wantBalance);
 
         if (agEURBalance != 0 && cUSDBalance != 0) {
             IERC20Upgradeable(CUSD).safeIncreaseAllowance(SPOOKY_ROUTER, cUSDBalance);
@@ -224,7 +214,6 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
             );
         }
         wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
-        console.log("wantBalance: ", wantBalance);
     }
 
     /**
