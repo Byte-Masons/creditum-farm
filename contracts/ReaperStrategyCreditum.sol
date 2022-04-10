@@ -197,8 +197,6 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
         uint256 agEURBalance = IERC20Upgradeable(AGEUR).balanceOf(address(this));
         cUSDBalance = IERC20Upgradeable(CUSD).balanceOf(address(this));
 
-        uint256 wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
-
         if (agEURBalance != 0 && cUSDBalance != 0) {
             IERC20Upgradeable(CUSD).safeIncreaseAllowance(SPOOKY_ROUTER, cUSDBalance);
             IERC20Upgradeable(AGEUR).safeIncreaseAllowance(SPOOKY_ROUTER, agEURBalance);
@@ -213,7 +211,6 @@ contract ReaperStrategyCreditum is ReaperBaseStrategyv2 {
                 block.timestamp
             );
         }
-        wantBalance = IERC20Upgradeable(want).balanceOf(address(this));
     }
 
     /**
